@@ -60,7 +60,6 @@ class OrderController {
     }
     // for order
 
-    let data;
     const paymentData = await Payment.create({
       paymentMethod: paymentMethod,
     });
@@ -77,9 +76,10 @@ class OrderController {
       email,
       paymentId: paymentData.id,
     });
-    // for orderDetails
-    products.forEach(async function (product) {
-      data = await OrderDetails.create({
+
+    // for orderDetails - use for...of to properly await each operation
+    for (const product of products) {
+      await OrderDetails.create({
         quantity: product.productQty,
         productId: product.productId,
         orderId: orderData.id,
@@ -91,6 +91,15 @@ class OrderController {
           userId: userId,
         },
       });
+    }
+
+    // Fetch the complete order with payment details to send to frontend
+    const completeOrder = await Order.findByPk(orderData.id, {
+      attributes: ["totalAmount", "id", "orderStatus"],
+      include: {
+        model: Payment,
+        attributes: ["paymentMethod", "paymentStatus"],
+      },
     });
 
     // for payment
@@ -98,7 +107,7 @@ class OrderController {
     if (paymentMethod == PaymentMethod.Khalti) {
       // khalti logic
 
-      const data = {
+      const khaltiData = {
         return_url: "http://localhost:5173/",
         website_url: "http://localhost:5173/",
         amount: totalAmount * 100,
@@ -107,7 +116,7 @@ class OrderController {
       };
       const response = await axios.post(
         "https://a.khalti.com/api/v2/epayment/initiate/",
-        data,
+        khaltiData,
         {
           headers: {
             Authorization: "Key b71142e3f4fd4da8acccd01c8975be38",
@@ -121,13 +130,13 @@ class OrderController {
         message: "Order created successfully",
         url: khaltiResponse.payment_url,
         pidx: khaltiResponse.pidx,
-        data,
+        data: completeOrder,
       });
     } else if (paymentMethod == PaymentMethod.Esewa) {
     } else {
       res.status(200).json({
         message: "Order created successfully",
-        data,
+        data: completeOrder,
       });
     }
   }
