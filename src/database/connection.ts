@@ -25,9 +25,16 @@ try {
   console.log(error);
 }
 
-sequelize.sync({ force: false, alter: false }).then(() => {
-  console.log("synced !!");
-});
+export const syncDatabase = async () => {
+  try {
+    await sequelize.sync({ force: true, alter: false });
+    console.log("synced !!");
+  } catch (error) {
+    console.error("Sync Error:", error);
+    throw error;
+  }
+};
+
 // relationships //
 Category.hasOne(Product, { foreignKey: "categoryId" });
 Product.belongsTo(Category, { foreignKey: "categoryId" });
