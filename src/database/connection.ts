@@ -8,35 +8,43 @@ import Payment from "./models/paymentModel";
 import OrderDetails from "./models/orderDetails";
 import Cart from "./models/cartModel";
 
+// 1. Single Sequelize instance combining Supabase SSL options and sequelize-typescript models
 const sequelize = new Sequelize(envConfig.connectionString as string, {
-  models: [__dirname + "/models"],
+  dialect: "postgres",
+  models: [__dirname + "/models"], // or you can pass [Product, Category, User, Order, Payment, OrderDetails, Cart]
+  dialectOptions: {
+    ssl: {
+      require: true,
+      rejectUnauthorized: false, // Required for Supabase connections
+    },
+  },
+  logging: false, // Set to console.log if you want to see raw SQL queries
 });
 
-try {
-  sequelize
-    .authenticate()
-    .then(() => {
-      console.log("Connected !!! 😀");
-    })
-    .catch((err) => {
-      console.log("ERROR 😝 : ", err);
-    });
-} catch (error) {
-  console.log(error);
-}
+// 2. Test Connection
+sequelize
+  .authenticate()
+  .then(() => {
+    console.log("Connected to Database successfully! 😀");
+  })
+  .catch((err) => {
+    console.error("Database connection error 😝 : ", err);
+  });
 
+// 3. Database Sync Function
 export const syncDatabase = async () => {
   try {
     await sequelize.sync({ force: false, alter: false });
-    console.log("synced !!");
+    console.log("Database Synced !!");
   } catch (error) {
     console.error("Sync Error:", error);
     throw error;
   }
 };
 
-// relationships //
-Category.hasOne(Product, { foreignKey: "categoryId" });
+// 4. Model Relationships
+// Category X Product (A category has many products)
+Category.hasMany(Product, { foreignKey: "categoryId" });
 Product.belongsTo(Category, { foreignKey: "categoryId" });
 
 // User X Order
@@ -47,17 +55,20 @@ Order.belongsTo(User, { foreignKey: "userId" });
 Payment.hasOne(Order, { foreignKey: "paymentId" });
 Order.belongsTo(Payment, { foreignKey: "paymentId" });
 
-Order.hasOne(OrderDetails, { foreignKey: "orderId" });
+// Order X OrderDetails (An order has many order items/details)
+Order.hasMany(OrderDetails, { foreignKey: "orderId" });
 OrderDetails.belongsTo(Order, { foreignKey: "orderId" });
 
+// Product X OrderDetails
 Product.hasMany(OrderDetails, { foreignKey: "productId" });
 OrderDetails.belongsTo(Product, { foreignKey: "productId" });
 
-// cart - user
+// Cart X User
 Cart.belongsTo(User, { foreignKey: "userId" });
 User.hasOne(Cart, { foreignKey: "userId" });
 
-// cart - product
+// Cart X Product
 Cart.belongsTo(Product, { foreignKey: "productId" });
 Product.hasMany(Cart, { foreignKey: "productId" });
+
 export default sequelize;
